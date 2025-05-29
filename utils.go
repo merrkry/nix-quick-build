@@ -108,6 +108,7 @@ func evalResultHandler(cfg *Config, evalResultChan chan evalResult, builds *buil
 			for _, out := range evalResult.Outputs {
 				slog.Info("Pushing output to attic", "output", out)
 				atticCmd := exec.Command("attic", "push", cfg.atticCache, out)
+				atticCmd.Stderr = os.Stderr
 				err := atticCmd.Run()
 				if err != nil {
 					slog.Error("Attic push failed", "error", err)
