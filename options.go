@@ -13,6 +13,7 @@ type Config struct {
 	evalArgs   []string
 	tmpDir     string
 	logLevel   slog.Level
+	atticCache string
 	// TODO: worker, handler limits
 }
 
@@ -27,6 +28,7 @@ func defaultConfig() (*Config, error) {
 		evalArgs:   []string{},
 		tmpDir:     tmpDir,
 		logLevel:   slog.LevelInfo,
+		atticCache: "",
 	}, nil
 }
 
@@ -49,6 +51,8 @@ func loadConfig() (*Config, error) {
 	flag.Func("log-level", "Log level as defined in log/slog", func(value string) error {
 		return cfg.logLevel.UnmarshalText([]byte(value))
 	})
+	
+	flag.StringVar(&cfg.atticCache, "attic-cache", defaultCfg.atticCache, "Attic cache name")
 
 	flag.Parse()
 

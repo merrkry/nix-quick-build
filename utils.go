@@ -25,6 +25,7 @@ type evalResult struct {
 	DrvPath     string      `json:"drvPath"`
 	System      string      `json:"system"`
 	CacheStatus cacheStatus `json:"cacheStatus"`
+	Outputs     map[string]string `json:"outputs"`
 }
 
 func startEvalJobs(cfg *Config, evalResultChan chan evalResult) {
@@ -86,7 +87,7 @@ func evalResultHandler(cfg *Config, evalResultChan chan evalResult, builds *buil
 		}
 
 		if evalResult.CacheStatus == notBuilt {
-			buildCmd := exec.Command("nix-build", evalResult.DrvPath, "--out-link", path.Join(cfg.tmpDir, "builds"))
+			buildCmd := exec.Command("nix-build", evalResult.DrvPath, "--out-link", path.Join(cfg.tmpDir, "builds", evalResult.Attr))
 			err := buildCmd.Run()
 			if err != nil {
 				slog.Error("Build failed", "drv", evalResult.DrvPath, "error", err)
@@ -101,6 +102,15 @@ func evalResultHandler(cfg *Config, evalResultChan chan evalResult, builds *buil
 			builds.addSkipped(evalResult.Attr)
 		}
 
-		// TODO: upload to attic
+		if cfg.atticCache != "" {
+			for _, out := range evalResult.Outputs {
+				slog.Info("Pushing output to attic", "output", out)
+				atticCmd := exec.Command("attic", "push", cfg.atticCache, out)
+				err := atticCmd.Run()
+				if err != nil {
+					slog.Error("Attic push failed", "error", err)
+				}
+			}
+		}
 	}
 }

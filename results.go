@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -29,4 +30,24 @@ func (br *buildResults) addFailed(drvPath string) {
 	br.mu.Lock()
 	defer br.mu.Unlock()
 	br.failedBuilds = append(br.failedBuilds, drvPath)
+}
+
+func (br *buildResults) printResults() {
+	br.mu.Lock()
+	defer br.mu.Unlock()
+
+	fmt.Println("Skipped builds:")
+	for _, attr := range br.skippedBuilds {
+		fmt.Println("-", attr)
+	}
+
+	fmt.Println("Successful builds:")
+	for _, attr := range br.successfulBuilds {
+		fmt.Println("-", attr)
+	}
+
+	fmt.Println("Failed builds:")
+	for _, drvPath := range br.failedBuilds {
+		fmt.Println("-", drvPath)
+	}
 }
