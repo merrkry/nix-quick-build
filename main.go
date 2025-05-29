@@ -14,13 +14,22 @@ func main() {
 		panic(err)
 	}
 
+	builds := buildResults{
+		mu:               sync.Mutex{},
+		skippedBuilds:    []string{},
+		successfulBuilds: []string{},
+		failedBuilds:     []string{},
+	}
+
 	numWorkers := 4
 	var wg sync.WaitGroup
-	resultChan := make(chan evalResult, 128)
+	evals := make(chan evalResult, 128)
+	wg.Add(numWorkers)
 	for i := 0; i < numWorkers; i++ {
-		wg.Add(1)
-		go evalResultHandler(resultChan, &wg)
+		go evalResultHandler(config, evals, &builds, &wg)
 	}
-	startEvalJobs(config, resultChan)
+	startEvalJobs(config, evals)
 	wg.Wait()
+
+	slog.Info("Build results:", "skipped", builds.skippedBuilds, "successful", builds.successfulBuilds, "failed", builds.failedBuilds)
 }

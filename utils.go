@@ -3,12 +3,12 @@ package main
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"log/slog"
 	"os"
 	"os/exec"
+	"path"
 	"sync"
 )
 
@@ -32,7 +32,6 @@ func startEvalJobs(cfg *Config, evalResultChan chan evalResult) {
 
 	evalCmd := exec.Command("nix-eval-jobs", cfg.evalArgs...)
 
-	// evalCmd.Stderr = io.Discard
 	evalCmd.Stderr = os.Stderr
 	stdout, err := evalCmd.StdoutPipe()
 	if err != nil {
@@ -62,7 +61,7 @@ func startEvalJobs(cfg *Config, evalResultChan chan evalResult) {
 		if err != nil {
 			continue
 		}
-		
+
 		slog.Debug("Handling eval result", "raw", line, "result", result)
 
 		evalResultChan <- result
@@ -74,17 +73,34 @@ func startEvalJobs(cfg *Config, evalResultChan chan evalResult) {
 	}
 }
 
-func evalResultHandler(evalResultChan chan evalResult, wg *sync.WaitGroup) {
+func evalResultHandler(cfg *Config, evalResultChan chan evalResult, builds *buildResults, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for evalResult := range evalResultChan {
-		switch evalResult.CacheStatus {
-		case local:
-			slog.Info(fmt.Sprintf("Local derivation: %s", evalResult.Attr))
-		case cached:
-			slog.Info(fmt.Sprintf("Cached derivation: %s", evalResult.Attr))
-		case notBuilt:
-			slog.Info(fmt.Sprintf("Not built derivation: %s", evalResult.Attr))
+		slog.Info("Handling eval result", "attr", evalResult.Attr)
+
+		if cfg.skipCached && evalResult.CacheStatus == cached {
+			slog.Info("Skipping cached derivation", "attr", evalResult.Attr)
+			builds.addSkipped(evalResult.Attr)
+			continue
 		}
+
+		if evalResult.CacheStatus == notBuilt {
+			buildCmd := exec.Command("nix-build", evalResult.DrvPath, "--out-link", path.Join(cfg.tmpDir, "builds"))
+			err := buildCmd.Run()
+			if err != nil {
+				slog.Error("Build failed", "drv", evalResult.DrvPath, "error", err)
+				builds.addFailed(evalResult.DrvPath)
+				continue
+			} else {
+				slog.Info("Build succeeded", "attr", evalResult.Attr)
+				builds.addSuccessful(evalResult.Attr)
+			}
+		} else {
+			slog.Info("Derivation already built", "attr", evalResult.Attr)
+			builds.addSkipped(evalResult.Attr)
+		}
+
+		// TODO: upload to attic
 	}
 }

@@ -39,7 +39,7 @@ func loadConfig() (*Config, error) {
 
 	flag.StringVar(&cfg.targetAttr, "flake", defaultCfg.targetAttr, "Target flakes attribute to build")
 
-	flag.BoolVar(&cfg.skipCached, "skip-cached", defaultCfg.skipCached, "Skip building or uploading drv already cached by substituters. Disabled by default.")
+	flag.BoolVar(&cfg.skipCached, "skip-cached", defaultCfg.skipCached, "Derivation already cached by any substituter will not be built/uploaded. Disabled by default.")
 
 	flag.Func("args", "Extra arguments passed directly to nix-eval-jobs", func(value string) error {
 		cfg.evalArgs = append(cfg.evalArgs, value)
@@ -52,7 +52,7 @@ func loadConfig() (*Config, error) {
 
 	flag.Parse()
 
-	cfg.evalArgs = append(cfg.evalArgs, "--flake", cfg.targetAttr, "--force-recurse", "--gc-roots-dir", path.Join(cfg.tmpDir, "gcroots"), "--check-cache-status")
+	cfg.evalArgs = append(cfg.evalArgs, "--flake", cfg.targetAttr, "--force-recurse", "--gc-roots-dir", path.Join(cfg.tmpDir, "evals"), "--check-cache-status")
 
 	slog.SetLogLoggerLevel(cfg.logLevel)
 
