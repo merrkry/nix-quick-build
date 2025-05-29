@@ -1,11 +1,18 @@
 package main
 
 import (
+	"log/slog"
+	"os"
 	"sync"
 )
 
 func main() {
-	config, _ := loadConfig()
+	config, err := loadConfig()
+	defer os.RemoveAll(config.tmpDir)
+	if err != nil {
+		slog.Error("initialization failed.")
+		panic(err)
+	}
 
 	numWorkers := 4
 	var wg sync.WaitGroup

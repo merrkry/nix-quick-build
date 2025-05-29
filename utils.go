@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"sync"
@@ -26,14 +27,10 @@ type evalResult struct {
 	CacheStatus cacheStatus `json:"cacheStatus"`
 }
 
-func createEvalCmd(cfg *Config) *exec.Cmd {
-	return exec.Command("nix-eval-jobs", "--flake", cfg.targetAttr, "--gc-roots-dir", "gcroots", "--force-recurse", "--check-cache-status")
-}
-
 func startEvalJobs(cfg *Config, evalResultChan chan evalResult) {
 	defer close(evalResultChan)
 
-	evalCmd := createEvalCmd(cfg)
+	evalCmd := exec.Command("nix-eval-jobs", cfg.evalArgs...)
 
 	// evalCmd.Stderr = io.Discard
 	evalCmd.Stderr = os.Stderr
@@ -65,6 +62,8 @@ func startEvalJobs(cfg *Config, evalResultChan chan evalResult) {
 		if err != nil {
 			continue
 		}
+		
+		slog.Debug("Handling eval result", "raw", line, "result", result)
 
 		evalResultChan <- result
 	}
@@ -79,7 +78,13 @@ func evalResultHandler(evalResultChan chan evalResult, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for evalResult := range evalResultChan {
-		// placeholder
-		fmt.Println(evalResult)
+		switch evalResult.CacheStatus {
+		case local:
+			slog.Info(fmt.Sprintf("Local derivation: %s", evalResult.Attr))
+		case cached:
+			slog.Info(fmt.Sprintf("Cached derivation: %s", evalResult.Attr))
+		case notBuilt:
+			slog.Info(fmt.Sprintf("Not built derivation: %s", evalResult.Attr))
+		}
 	}
 }
