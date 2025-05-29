@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"flag"
-	"io/ioutil"
 	"log/slog"
+	"os"
+	"os/exec"
 	"path"
 )
 
@@ -14,14 +16,25 @@ type Config struct {
 	tmpDir     string
 	logLevel   slog.Level
 	atticCache string
+	system     string
 	// TODO: worker, handler limits
 }
 
 func defaultConfig() (*Config, error) {
-	tmpDir, err := ioutil.TempDir("", "nix-quick-build")
+	tmpDir, err := os.MkdirTemp("", "nix-quick-build")
 	if err != nil {
 		return nil, err
 	}
+
+	var arch bytes.Buffer
+	archCmd := exec.Command("nix", "eval", "--raw", "--impure", "--expr", "builtins.currentSystem")
+	archCmd.Stdout = &arch
+	err = archCmd.Run()
+	if err != nil {
+		slog.Error("Unable to get system architecture infomation.")
+		return nil, err
+	}
+
 	return &Config{
 		targetAttr: ".#nixosConfigurations",
 		skipCached: false,
@@ -29,6 +42,7 @@ func defaultConfig() (*Config, error) {
 		tmpDir:     tmpDir,
 		logLevel:   slog.LevelInfo,
 		atticCache: "",
+		system:     arch.String(),
 	}, nil
 }
 
@@ -51,7 +65,7 @@ func loadConfig() (*Config, error) {
 	flag.Func("log-level", "Log level as defined in log/slog", func(value string) error {
 		return cfg.logLevel.UnmarshalText([]byte(value))
 	})
-	
+
 	flag.StringVar(&cfg.atticCache, "attic-cache", defaultCfg.atticCache, "Attic cache name")
 
 	flag.Parse()

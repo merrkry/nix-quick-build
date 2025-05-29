@@ -21,10 +21,10 @@ const (
 )
 
 type evalResult struct {
-	Attr        string      `json:"attr"`
-	DrvPath     string      `json:"drvPath"`
-	System      string      `json:"system"`
-	CacheStatus cacheStatus `json:"cacheStatus"`
+	Attr        string            `json:"attr"`
+	DrvPath     string            `json:"drvPath"`
+	System      string            `json:"system"`
+	CacheStatus cacheStatus       `json:"cacheStatus"`
 	Outputs     map[string]string `json:"outputs"`
 }
 
@@ -65,7 +65,9 @@ func startEvalJobs(cfg *Config, evalResultChan chan evalResult) {
 
 		slog.Debug("Handling eval result", "raw", line, "result", result)
 
-		evalResultChan <- result
+		if result.System == cfg.system {
+			evalResultChan <- result
+		}
 	}
 
 	err = evalCmd.Wait()
