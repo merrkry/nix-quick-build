@@ -32,6 +32,7 @@ func startEvalJobs(cfg *Config, evalResultChan chan evalResult) {
 	defer close(evalResultChan)
 
 	evalCmd := exec.Command("nix-eval-jobs", cfg.evalArgs...)
+	slog.Info("Calling nix-eval-jobs", "command", evalCmd.String())
 
 	evalCmd.Stderr = os.Stderr
 	stdout, err := evalCmd.StdoutPipe()
