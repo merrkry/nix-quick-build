@@ -8,28 +8,32 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strings"
 	"sync"
 )
 
-type evalJobArgs struct {
-	attr string
-}
+type cacheStatus string
 
-func (args evalJobArgs) createEvalCmd() *exec.Cmd {
-	return exec.Command("nix-eval-jobs", "--flake", args.attr, "--gc-roots-dir", "gcroots", "--force-recurse")
-}
+const (
+	local    cacheStatus = "local"
+	cached   cacheStatus = "cached"
+	notBuilt cacheStatus = "notBuilt"
+)
 
 type evalResult struct {
-	Attr    string `json:"attr"`
-	DrvPath string `json:"drvPath"`
-	System  string `json:"system"`
+	Attr        string      `json:"attr"`
+	DrvPath     string      `json:"drvPath"`
+	System      string      `json:"system"`
+	CacheStatus cacheStatus `json:"cacheStatus"`
 }
 
-func startEvalJobs(args evalJobArgs, evalResultChan chan evalResult) {
+func createEvalCmd(cfg *Config) *exec.Cmd {
+	return exec.Command("nix-eval-jobs", "--flake", cfg.targetAttr, "--gc-roots-dir", "gcroots", "--force-recurse", "--check-cache-status")
+}
+
+func startEvalJobs(cfg *Config, evalResultChan chan evalResult) {
 	defer close(evalResultChan)
 
-	evalCmd := args.createEvalCmd()
+	evalCmd := createEvalCmd(cfg)
 
 	// evalCmd.Stderr = io.Discard
 	evalCmd.Stderr = os.Stderr
@@ -40,7 +44,7 @@ func startEvalJobs(args evalJobArgs, evalResultChan chan evalResult) {
 
 	err = evalCmd.Start()
 	if err != nil {
-		log.Fatal("Unable to start eval command", err)
+		log.Fatal("Unable to start nix-eval-jobs", err)
 	}
 
 	reader := bufio.NewReader(stdout)
@@ -52,11 +56,9 @@ func startEvalJobs(args evalJobArgs, evalResultChan chan evalResult) {
 			if err == io.EOF {
 				break
 			} else {
-				log.Fatal("Invalid eval result", err)
+				log.Fatal("Invalid eval result", err, line)
 			}
 		}
-
-		line = strings.TrimSpace(line)
 
 		var result evalResult
 		err = json.Unmarshal([]byte(line), &result)
@@ -66,8 +68,6 @@ func startEvalJobs(args evalJobArgs, evalResultChan chan evalResult) {
 
 		evalResultChan <- result
 	}
-
-	fmt.Println("Waiting nix-eval-jobs to exit.")
 
 	err = evalCmd.Wait()
 	if err != nil {
