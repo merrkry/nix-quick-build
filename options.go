@@ -10,13 +10,14 @@ import (
 )
 
 type Config struct {
-	targetAttr string
-	skipCached bool
-	evalArgs   []string
-	tmpDir     string
-	logLevel   slog.Level
-	atticCache string
-	system     string
+	targetAttr      string
+	skipCached      bool
+	evalArgs        []string
+	tmpDir          string
+	logLevel        slog.Level
+	atticCache      string
+	system          string
+	forceSubstitute bool
 	// TODO: worker, handler limits
 }
 
@@ -36,13 +37,14 @@ func defaultConfig() (*Config, error) {
 	}
 
 	return &Config{
-		targetAttr: ".#nixosConfigurations",
-		skipCached: false,
-		evalArgs:   []string{},
-		tmpDir:     tmpDir,
-		logLevel:   slog.LevelInfo,
-		atticCache: "",
-		system:     arch.String(),
+		targetAttr:      ".#nixosConfigurations",
+		skipCached:      false,
+		evalArgs:        []string{},
+		tmpDir:          tmpDir,
+		logLevel:        slog.LevelInfo,
+		atticCache:      "",
+		system:          arch.String(),
+		forceSubstitute: false,
 	}, nil
 }
 
@@ -67,6 +69,8 @@ func loadConfig() (*Config, error) {
 	})
 
 	flag.StringVar(&cfg.atticCache, "attic-cache", defaultCfg.atticCache, "Attic cache name")
+
+	flag.BoolVar(&cfg.forceSubstitute, "force-substitute", defaultCfg.forceSubstitute, "Substitute locally regardless of reported cache status. Useful with lix.")
 
 	flag.Parse()
 

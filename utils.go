@@ -21,11 +21,14 @@ const (
 )
 
 type evalResult struct {
-	Attr        string            `json:"attr"`
-	DrvPath     string            `json:"drvPath"`
-	System      string            `json:"system"`
-	CacheStatus cacheStatus       `json:"cacheStatus"`
-	Outputs     map[string]string `json:"outputs"`
+	Attr    string `json:"attr"`
+	DrvPath string `json:"drvPath"`
+	System  string `json:"system"`
+	// lix doesn't report this, and will return `"isCached": true` regardless of reality
+	CacheStatus cacheStatus `json:"cacheStatus"`
+	// in Lix, this field is null and another `inputDrvs` is added
+	// to avoid this, we simply consider the path with `.drv` trimmed as output
+	// Outputs     map[string]string `json:"outputs"`
 }
 
 func startEvalJobs(cfg *Config, evalResultChan chan evalResult) {
@@ -89,7 +92,7 @@ func evalResultHandler(cfg *Config, evalResultChan chan evalResult, builds *buil
 			continue
 		}
 
-		if evalResult.CacheStatus == notBuilt {
+		if cfg.forceSubstitute || evalResult.CacheStatus == notBuilt {
 			buildCmd := exec.Command("nix-build", evalResult.DrvPath, "--out-link", path.Join(cfg.tmpDir, "builds", evalResult.Attr))
 			err := buildCmd.Run()
 			if err != nil {
@@ -106,14 +109,22 @@ func evalResultHandler(cfg *Config, evalResultChan chan evalResult, builds *buil
 		}
 
 		if cfg.atticCache != "" {
-			for _, out := range evalResult.Outputs {
-				slog.Info("Pushing output to attic", "output", out)
-				atticCmd := exec.Command("attic", "push", cfg.atticCache, out)
-				atticCmd.Stderr = os.Stderr
-				err := atticCmd.Run()
-				if err != nil {
-					slog.Error("Attic push failed", "error", err)
-				}
+			// for _, out := range evalResult.Outputs {
+			// 	slog.Info("Pushing output to attic", "output", out)
+			// 	atticCmd := exec.Command("attic", "push", cfg.atticCache, out)
+			// 	atticCmd.Stderr = os.Stderr
+			// 	err := atticCmd.Run()
+			// 	if err != nil {
+			// 		slog.Error("Attic push failed", "error", err)
+			// 	}
+			// }
+			buildResult := evalResult.DrvPath[:len(evalResult.DrvPath)-4] // trim `.drv` suffix
+			slog.Info("Pushing output to attic", "output", buildResult)
+			atticCmd := exec.Command("attic", "push", cfg.atticCache, buildResult)
+			atticCmd.Stderr = os.Stderr
+			err := atticCmd.Run()
+			if err != nil {
+				slog.Error("Attic push failed", "error", err)
 			}
 		}
 	}
