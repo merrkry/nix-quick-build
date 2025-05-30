@@ -16,48 +16,54 @@
       ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
       nixpkgsFor = forAllSystems (system: import nixpkgs { inherit system; });
+      nix-quick-build-package =
+        {
+          lib,
+          buildGoModule,
+          makeWrapper,
+          nix-eval-jobs,
+          attic-client,
+        }:
+        buildGoModule {
+          pname = "nix-quick-build";
+          inherit version;
+          src = ./.;
+          vendorHash = null;
+
+          nativeBuildInputs = [
+            makeWrapper
+          ];
+
+          buildInputs = [
+            attic-client
+            nix-eval-jobs
+          ];
+
+          postFixup = ''
+            wrapProgram $out/bin/nix-quick-build \
+              --prefix PATH : ${
+                lib.makeBinPath [
+                  nix-eval-jobs
+                  attic-client
+                ]
+              }
+          '';
+        };
     in
     {
       overlays.default = final: prev: {
-        nix-quick-build = self.outputs.packages.${final.system}.nix-quick-build;
+        nix-quick-build = final.callPackage nix-quick-build-package { };
       };
 
-      packages = forAllSystems (system: rec {
-        nix-quick-build = nixpkgsFor.${system}.callPackage (
-          {
-            lib,
-            buildGoModule,
-            makeWrapper,
-            nix-eval-jobs,
-            attic-client,
-          }:
-          buildGoModule {
-            pname = "nix-quick-build";
-            inherit version;
-            src = ./.;
-            vendorHash = null;
-
-            nativeBuildInputs = [
-              makeWrapper
-            ];
-
-            buildInputs = [
-              attic-client
-              nix-eval-jobs
-            ];
-
-            postFixup = ''
-              wrapProgram $out/bin/nix-quick-build \
-                --prefix PATH : ${
-                  lib.makeBinPath [
-                    nix-eval-jobs
-                    attic-client
-                  ]
-                }
-            '';
-          }
-        ) { };
-        default = nix-quick-build;
-      });
+      packages = forAllSystems (
+        system:
+        let
+          nix-quick-build = nixpkgsFor.${system}.callPackage nix-quick-build-package { };
+        in
+        {
+          inherit nix-quick-build;
+          default = nix-quick-build;
+        }
+      );
     };
 }
