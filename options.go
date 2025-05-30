@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"runtime"
 )
 
 type Config struct {
@@ -18,6 +19,7 @@ type Config struct {
 	atticCache      string
 	system          string
 	forceSubstitute bool
+	numWorkers      int
 	// TODO: worker, handler limits
 }
 
@@ -45,6 +47,7 @@ func defaultConfig() (*Config, error) {
 		atticCache:      "",
 		system:          arch.String(),
 		forceSubstitute: false,
+		numWorkers:      runtime.NumCPU(),
 	}, nil
 }
 
@@ -71,6 +74,8 @@ func loadConfig() (*Config, error) {
 	flag.StringVar(&cfg.atticCache, "attic-cache", defaultCfg.atticCache, "Attic cache name")
 
 	flag.BoolVar(&cfg.forceSubstitute, "force-substitute", defaultCfg.forceSubstitute, "Substitute locally regardless of reported cache status. Useful with lix.")
+
+	flag.IntVar(&cfg.numWorkers, "workers", defaultCfg.numWorkers, "Number of substition workers. Defaults to number of CPU cores.")
 
 	flag.Parse()
 

@@ -33,11 +33,10 @@ func main() {
 		failedBuilds:     []string{},
 	}
 
-	numWorkers := 4
 	var wg sync.WaitGroup
-	evals := make(chan evalResult, 128) // TODO: dynamic limit
-	wg.Add(numWorkers)
-	for i := 0; i < numWorkers; i++ {
+	evals := make(chan evalResult, 1024)
+	wg.Add(config.numWorkers)
+	for i := 0; i < config.numWorkers; i++ {
 		go evalResultHandler(config, evals, &builds, &wg)
 	}
 	startEvalJobs(config, evals)
