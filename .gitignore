@@ -1,2 +1,4 @@
 /gcroots/
-/result/
+
+result
+result-*

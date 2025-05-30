@@ -22,20 +22,42 @@
         nix-quick-build = self.outputs.packages.${final.system}.nix-quick-build;
       };
 
-      packages = forAllSystems (
-        system:
-        let
-          pkgs = nixpkgsFor.${system};
-        in
-        rec {
-          nix-quick-build = pkgs.buildGoModule {
+      packages = forAllSystems (system: rec {
+        nix-quick-build = nixpkgsFor.${system}.callPackage (
+          {
+            lib,
+            buildGoModule,
+            makeWrapper,
+            nix-eval-jobs,
+            attic-client,
+          }:
+          buildGoModule {
             pname = "nix-quick-build";
             inherit version;
             src = ./.;
             vendorHash = null;
-          };
-          default = nix-quick-build;
-        }
-      );
+
+            nativeBuildInputs = [
+              makeWrapper
+            ];
+
+            buildInputs = [
+              attic-client
+              nix-eval-jobs
+            ];
+
+            postFixup = ''
+              wrapProgram $out/bin/nix-quick-build \
+                --prefix PATH : ${
+                  lib.makeBinPath [
+                    nix-eval-jobs
+                    attic-client
+                  ]
+                }
+            '';
+          }
+        ) { };
+        default = nix-quick-build;
+      });
     };
 }
