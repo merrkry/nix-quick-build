@@ -9,7 +9,9 @@
     { self, nixpkgs }:
     let
       lastModifiedDate = self.lastModifiedDate or self.lastModified or "19700101";
-      version = builtins.substring 0 8 lastModifiedDate;
+      version = "0-unstable-${builtins.substring 0 4 lastModifiedDate}-${
+        builtins.substring 4 2 lastModifiedDate
+      }-${builtins.substring 6 2 lastModifiedDate}";
       systems = [
         "x86_64-linux"
         "aarch64-linux"
