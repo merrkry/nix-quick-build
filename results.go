@@ -12,6 +12,7 @@ type buildResults struct {
 	skippedBuilds    []string
 	successfulBuilds []string
 	failedBuilds     []string
+	evalFailedBuilds []string
 }
 
 func (br *buildResults) addSkipped(attr string) {
@@ -32,6 +33,12 @@ func (br *buildResults) addFailed(drvPath string) {
 	br.failedBuilds = append(br.failedBuilds, drvPath)
 }
 
+func (br *buildResults) addEvalFailed(attr string) {
+	br.mu.Lock()
+	defer br.mu.Unlock()
+	br.evalFailedBuilds = append(br.evalFailedBuilds, attr)
+}
+
 func (br *buildResults) printResults() {
 	br.mu.Lock()
 	defer br.mu.Unlock()
@@ -49,5 +56,10 @@ func (br *buildResults) printResults() {
 	fmt.Println("Failed builds:")
 	for _, drvPath := range br.failedBuilds {
 		fmt.Println("-", drvPath)
+	}
+
+	fmt.Println("Eval failed builds:")
+	for _, attr := range br.evalFailedBuilds {
+		fmt.Println("-", attr)
 	}
 }

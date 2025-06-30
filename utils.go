@@ -22,6 +22,7 @@ const (
 )
 
 type evalResult struct {
+	Failed  bool
 	Attr    string `json:"attr"`
 	DrvPath string `json:"drvPath"`
 	System  string `json:"system"`
@@ -67,9 +68,13 @@ func startEvalJobs(cfg *Config, evalResultChan chan evalResult) {
 
 		slog.Debug("Handling eval result", "raw", line, "result", result)
 
-		if result.System == cfg.system {
-			evalResultChan <- result
+		// eval fail
+		if result.DrvPath == "" {
+			result.Failed = true
 		}
+
+		// send all eval results to handler, let it decide whether/how to build
+		evalResultChan <- result
 	}
 
 	err = evalCmd.Wait()
@@ -107,6 +112,16 @@ func evalResultHandler(cfg *Config, evalResultChan chan evalResult, builds *buil
 	for evalResult := range evalResultChan {
 		slog.Info("Handling eval result", "attr", evalResult.Attr)
 
+		// cross build not supported yet
+		if evalResult.System != cfg.system {
+			continue
+		}
+
+		if evalResult.Failed {
+			builds.addEvalFailed(evalResult.Attr)
+			continue
+		}
+
 		if cfg.skipCached && evalResult.CacheStatus == cached {
 			slog.Info("Skipping cached derivation", "attr", evalResult.Attr)
 			builds.addSkipped(evalResult.Attr)
@@ -115,6 +130,7 @@ func evalResultHandler(cfg *Config, evalResultChan chan evalResult, builds *buil
 
 		if cfg.forceSubstitute || evalResult.CacheStatus == notBuilt {
 			buildCmd := exec.Command("nix-build", evalResult.DrvPath, "--out-link", path.Join(cfg.tmpDir, "builds", evalResult.Attr))
+			buildCmd.Stderr = os.Stderr
 			err := buildCmd.Run()
 			if err != nil {
 				slog.Error("Build failed", "drv", evalResult.DrvPath, "error", err)
