@@ -66,12 +66,12 @@ func startEvalJobs(cfg *Config, evalResultChan chan evalResult) {
 			continue
 		}
 
-		slog.Debug("Handling eval result", "raw", line, "result", result)
-
 		// eval fail
 		if result.DrvPath == "" {
 			result.Failed = true
 		}
+
+		slog.Debug("Received eval result", "raw", line, "result", result)
 
 		// send all eval results to handler, let it decide whether/how to build
 		evalResultChan <- result
@@ -110,15 +110,18 @@ func evalResultHandler(cfg *Config, evalResultChan chan evalResult, builds *buil
 	defer wg.Done()
 
 	for evalResult := range evalResultChan {
-		slog.Info("Handling eval result", "attr", evalResult.Attr)
-
-		// cross build not supported yet
-		if evalResult.System != cfg.system {
-			continue
-		}
+		slog.Info("Building eval result", "attr", evalResult.Attr)
 
 		if evalResult.Failed {
 			builds.addEvalFailed(evalResult.Attr)
+			continue
+		}
+
+		// Successful eval result should be guaranteed to have a drvPath
+
+		// cross build not supported yet
+		if evalResult.System != cfg.system {
+			builds.addFailed(evalResult.DrvPath)
 			continue
 		}
 
@@ -129,7 +132,7 @@ func evalResultHandler(cfg *Config, evalResultChan chan evalResult, builds *buil
 		}
 
 		if cfg.forceSubstitute || evalResult.CacheStatus == notBuilt {
-			buildCmd := exec.Command("nix-build", evalResult.DrvPath, "--out-link", path.Join(cfg.tmpDir, "builds", evalResult.Attr))
+			buildCmd := exec.Command("nix-build", evalResult.DrvPath, "--out-link", path.Join(cfg.tmpDir, "builds", evalResult.Attr), "--keep-going", "--no-build-output")
 			buildCmd.Stderr = os.Stderr
 			err := buildCmd.Run()
 			if err != nil {

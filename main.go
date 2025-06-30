@@ -43,9 +43,13 @@ func main() {
 	wg.Wait()
 
 	builds.printResults()
-	
+
 	if len(builds.failedBuilds) > 0 || len(builds.evalFailedBuilds) > 0 {
 		slog.Error("Some builds failed, check the output above for details.")
+
+		// TODO: handle this more gracefully
+		os.RemoveAll(config.tmpDir)
+
 		os.Exit(1)
 	} else {
 		slog.Info("All builds completed successfully.")
