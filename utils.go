@@ -121,7 +121,7 @@ func evalResultHandler(cfg *Config, evalResultChan chan evalResult, builds *buil
 
 		// cross build not supported yet
 		if evalResult.System != cfg.system {
-			builds.addFailed(evalResult.DrvPath)
+			// builds.addFailed(evalResult.DrvPath)
 			continue
 		}
 
